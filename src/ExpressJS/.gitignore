@@ -1,0 +1,16 @@
+# Node modules
+node_modules/
+
+# Knex migracije lock file
+.knexfile.lock
+
+# Datoteke povezane s PSQL ali DB cache
+*.sqlite
+*.sqlite3
+
+# Ostali
+.env
+.DS_Store
+npm-debug.log
+yarn-debug.log
+yarn-error.log
