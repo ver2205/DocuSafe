@@ -3,13 +3,14 @@ const router = express.Router();
 const ctrl = require('../controllers/dokumentiController');
 const { preveriToken } = require('../middleware/authMiddleware');
 const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
-const uploadCtrl = require('../controllers/dokumentiUploadController');
+const upload = multer({ storage: multer.memoryStorage() });
 
-router.get('/', preveriToken, ctrl.getAll); // GET dokumentix
-router.get('/:id', preveriToken, ctrl.getById); // GET en dokument
-router.post('/', preveriToken, ctrl.create); // POST dokument
-router.put('/:id', preveriToken, ctrl.update); // PUT dokument
-router.delete('/:id', preveriToken, ctrl.remove); // DELETE dokument
+router.get('/', preveriToken, ctrl.getAll);
+router.get('/:id', preveriToken, ctrl.getById);
+router.post('/', preveriToken, ctrl.create);
+router.put('/:id', preveriToken, ctrl.update);
+router.delete('/:id', preveriToken, ctrl.remove);
+router.post('/upload', upload.single('file'), preveriToken, ctrl.uploadPdf);
+router.get('/:id/pdf', preveriToken, ctrl.getPdf);
 
 module.exports = router;

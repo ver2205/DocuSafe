@@ -33,6 +33,25 @@ exports.getById = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+exports.getPdf = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const dokument = await Dokument.where({ id }).fetch({ require: true });
+
+    // Preveri, če dokument pripada trenutnemu uporabniku
+    if (dokument.get('uporabnik_id') !== req.user.id) {
+      return res.status(403).json({ error: 'Dostop zavrnjen.' });
+    }
+
+    const buffer = dokument.get('vsebina_pdf');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.send(buffer);
+  } catch (err) {
+    console.error(err);
+    res.status(404).json({ error: 'Dokument ni najden.' });
+  }
+};
 
 // Ustvari dokument
 exports.create = async (req, res) => {
@@ -79,29 +98,50 @@ exports.remove = async (req, res) => {
 
 exports.uploadPdf = async (req, res) => {
   try {
-    const pdfBuffer = fs.readFileSync(req.file.path);
+    const pdfBuffer = req.file.buffer;
     const data = await pdfParse(pdfBuffer);
     const text = data.text;
 
     const tip = req.body.tip?.toLowerCase(); // "garancija" ali "račun"
-
     // Prepoznaj prvi datum
-    const datumi = text.match(/\d{2}\.\d{2}\.\d{4}/g) || [];
+    const datumi = text.match(/\d{1,2}\.\d{1,2}\.\d{4}/g) || [];
+    console.log(datumi);
+
     let predlaganDatum = null;
 
     if (tip === 'garancija' && datumi.length >= 2) {
       predlaganDatum = datumi[1]; // recimo drugi datum je končni rok
-    } else if (tip === 'račun' && datumi.length >= 1) {
+    } else if (tip === 'racun' && datumi.length >= 1) {
       predlaganDatum = datumi[0]; // prvi datum = nakup
     }
 
-    const izdelek = text.includes('Prenosnik') ? 'Prenosnik' : 'Neznano';
+    const izdelek = "text.includes('Prenosnik') ? 'Prenosnik' : 'Neznano'";
 
+    await new Dokument({
+      uporabnik_id: req.user.id, // preveri da v middleware dodajaš req.user
+      tip,
+      datum: predlaganDatum
+        ? new Date(predlaganDatum.split('.').reverse().join('-'))
+        : null,
+      vsebina_pdf: pdfBuffer,
+    }).save();
+
+    if (Dokument.get('datum')) {
+      const datumOpomnika = new Date(dokument.get('datum'));
+      datumOpomnika.setDate(datumOpomnika.getDate() - 1); // dan prej
+
+      await new Opomnik({
+        uporabnikId: req.user.id,
+        dokumentId: Dokument.id,
+        datum: datumOpomnika.toISOString().split('T')[0],
+        poslano: false,
+      }).save();
+    }
+    fs.unlinkSync(req.file.path); // počisti temp file
     res.json({
+      msg: 'Dokument in opomnik uspešno naloženi.',
       izdelek,
       predlaganDatum,
-      analiza: 'Prepoznan datum je predlog. Uporabnik lahko spremeni.',
-      vsebina: text.slice(0, 500) + '...', // za preview
     });
   } catch (err) {
     console.error(err);

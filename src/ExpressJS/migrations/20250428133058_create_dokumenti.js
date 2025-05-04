@@ -1,20 +1,20 @@
+// migrations/20250505_create_dokumenti.js
 exports.up = function (knex) {
-  return knex.schema.createTable('dokumenti', (table) => {
+  return knex.schema.createTable('dokumenti', function (table) {
     table.increments('id').primary();
     table
-      .integer('uporabnikId')
+      .integer('uporabnik_id')
+      .unsigned()
+      .notNullable()
       .references('id')
       .inTable('uporabniki')
       .onDelete('CASCADE');
-    table.string('naslov');
-    table.date('datum');
-    table.date('rok');
-    table.string('kategorija');
-    table.boolean('placano');
-    table.string('tip');
+    table.string('tip').notNullable(); // "račun" ali "garancija"
+    table.date('datum').nullable();
+    table.binary('vsebina_pdf').notNullable(); // <--- tu se shrani PDF kot bytea
   });
 };
 
 exports.down = function (knex) {
-  return knex.schema.dropTable('dokumenti');
+  return knex.schema.dropTableIfExists('dokumenti');
 };
