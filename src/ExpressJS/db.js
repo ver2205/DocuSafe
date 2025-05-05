@@ -1,11 +1,14 @@
-const knex = require('knex');
-const bookshelf = require('bookshelf');
+// db.js
+const knexPkg = require('knex');
+const bookshelfPkg = require('bookshelf');
 const knexConfig = require('./knexfile');
 
-const knexInstance = knex(knexConfig.development);
-const bookshelfInstance = bookshelf(knexInstance);
+const knex = knexPkg(knexConfig.development);
+const bookshelf = bookshelfPkg(knex);
 
-module.exports = {
-  knex: knexInstance,
-  bookshelf: bookshelfInstance,
-};
+// Log every SQL query
+knex.on('query', (query) => {
+  console.log('SQL →', query.sql, query.bindings);
+});
+
+module.exports = { knex, bookshelf };

@@ -1,12 +1,13 @@
 const fs = require('fs');
 const pdfParse = require('pdf-parse');
 const Dokument = require('../models/Dokument');
+const Opomnik = require('../models/Opomnik');
 
 // Vsi dokumenti za prijavljenega uporabnika (z opcijskim filtriranjem)
 exports.getAll = async (req, res) => {
   try {
     const userId = req.user.id;
-    let query = Dokument.where({ uporabnikId: userId });
+    let query = Dokument.where({ uporabnik_id: userId });
 
     if (req.query.kategorija) {
       query = query.query('where', 'kategorija', '=', req.query.kategorija);
@@ -24,7 +25,7 @@ exports.getById = async (req, res) => {
   try {
     const doc = await Dokument.where({
       id: req.params.id,
-      uporabnikId: req.user.id,
+      uporabnik_id: req.user.id,
     }).fetch({ require: false });
 
     if (!doc) return res.sendStatus(404);
@@ -58,7 +59,7 @@ exports.create = async (req, res) => {
   try {
     const doc = await new Dokument({
       ...req.body,
-      uporabnikId: req.user.id,
+      uporabnik_id: req.user.id,
     }).save();
     res.status(201).json(doc);
   } catch (err) {
@@ -71,7 +72,7 @@ exports.update = async (req, res) => {
   try {
     const doc = await Dokument.where({
       id: req.params.id,
-      uporabnikId: req.user.id,
+      uporabnik_id: req.user.id,
     }).fetch({ require: true });
 
     await doc.save(req.body, { patch: true });
@@ -86,7 +87,7 @@ exports.remove = async (req, res) => {
   try {
     const doc = await Dokument.where({
       id: req.params.id,
-      uporabnikId: req.user.id,
+      uporabnik_id: req.user.id,
     }).fetch({ require: true });
 
     await doc.destroy();
@@ -115,9 +116,8 @@ exports.uploadPdf = async (req, res) => {
       predlaganDatum = datumi[0]; // prvi datum = nakup
     }
 
-    const izdelek = "text.includes('Prenosnik') ? 'Prenosnik' : 'Neznano'";
-
-    await new Dokument({
+    console.log(pdfBuffer);
+    const nov = await new Dokument({
       uporabnik_id: req.user.id, // preveri da v middleware dodajaš req.user
       tip,
       datum: predlaganDatum
@@ -125,23 +125,21 @@ exports.uploadPdf = async (req, res) => {
         : null,
       vsebina_pdf: pdfBuffer,
     }).save();
+    console.log('Saved dokument:', nov.toJSON());
 
-    if (Dokument.get('datum')) {
-      const datumOpomnika = new Date(dokument.get('datum'));
+    if (nov.get('datum')) {
+      const datumOpomnika = new Date(nov.get('datum'));
       datumOpomnika.setDate(datumOpomnika.getDate() - 1); // dan prej
 
       await new Opomnik({
         uporabnikId: req.user.id,
-        dokumentId: Dokument.id,
+        dokumentId: nov.id,
         datum: datumOpomnika.toISOString().split('T')[0],
         poslano: false,
       }).save();
     }
-    fs.unlinkSync(req.file.path); // počisti temp file
     res.json({
-      msg: 'Dokument in opomnik uspešno naloženi.',
-      izdelek,
-      predlaganDatum,
+      msg: 'Dokument in opomnik dodani',
     });
   } catch (err) {
     console.error(err);
