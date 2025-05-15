@@ -96,12 +96,55 @@ exports.remove = async (req, res) => {
     res.status(404).json({ error: 'Dokument ni najden ali ni tvoj' });
   }
 };
+const months =
+  'januar|februar|marec|april|maj|junij|julij|avgust|september|oktober|november|december';
+
+function lineScore(line, idx) {
+  let score = 0;
+
+  if (/račun|invoice/i.test(line)) score += 4;
+  if (new RegExp(`(${months}|\\d{1,2}\\/\\d{4})`, 'i').test(line)) score += 3;
+  if (/št\.?|#\s*\d+/i.test(line)) score += 3;
+  if (/\d+[,.]\d{2}\s*€?/.test(line)) score += 2; // znesek
+  if (line.length >= 10 && line.length <= 80) score += 1;
+  if (idx < 10) score += 1; // visoko v dokumentu
+  //penaliziraj vrstico, ki izgleda kot šum/QR koda
+  if (/[A-Z]{3,}\s?[A-Z0-9]{3,}/.test(line)) score -= 2;
+  return score;
+}
+
+function extractNaslov(text, meta = {}) {
+  //  PDF metapodatki
+  if (meta?.info?.Title) return meta.info.Title.trim();
+
+  // preberi vrstice in točkuj
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  let best = { line: '', score: 0 };
+
+  lines.slice(0, 20).forEach((line, idx) => {
+    const s = lineScore(line, idx);
+    if (s > best.score) best = { line, score: s };
+  });
+
+  // če je dosežen prag >=4, vrni
+  if (best.score >= 4) return best.line;
+
+  // fallback – druga vrstica (če obstaja)
+  if (lines.length > 1) return lines[1];
+
+  //  zadnji fallback
+  return 'Neznan dokument';
+}
 
 exports.uploadPdf = async (req, res) => {
   try {
     const pdfBuffer = req.file.buffer;
     const data = await pdfParse(pdfBuffer);
     const text = data.text;
+    const naslov = extractNaslov(data.text, data);
 
     const tip = req.body.tip?.toLowerCase(); // "garancija" ali "račun"
     // Prepoznaj prvi datum
@@ -124,6 +167,8 @@ exports.uploadPdf = async (req, res) => {
         ? new Date(predlaganDatum.split('.').reverse().join('-'))
         : null,
       vsebina_pdf: pdfBuffer,
+      placano: false,
+      naslov,
     }).save();
     console.log('Saved dokument:', nov.toJSON());
 

@@ -11,7 +11,7 @@ exports.up = function (knex) {
       .onDelete('CASCADE');
     table.string('tip').notNullable(); // "račun" ali "garancija"
     table.date('datum').nullable();
-    table.binary('vsebina_pdf').notNullable(); // <--- tu se shrani PDF kot bytea
+    table.binary('vsebina_pdf').notNullable();
   });
 };
 
