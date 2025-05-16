@@ -2,6 +2,7 @@ const { bookshelf } = require('../db');
 
 const Dokument = bookshelf.model('Dokument', {
   tableName: 'dokumenti',
+
   uporabnik() {
     return this.belongsTo('Uporabnik', 'uporabnikId');
   },
